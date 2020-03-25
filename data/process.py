@@ -1,6 +1,9 @@
 
-from torch import Tensor
+import torch
 import yaml
+
+START_TOKEN = '\t'
+STOP_TOKEN = '\n'
 
 
 def compile_alphabet(out='data/alphabet.yml'):
@@ -20,8 +23,31 @@ def compile_alphabet(out='data/alphabet.yml'):
                 characters.add(char)
 
     characters = sorted(list(characters))
+    characters.insert(0, STOP_TOKEN)
+    characters.insert(0, START_TOKEN)
+
     with open(out, 'w') as file:
         file.write(yaml.dump(characters))
+
+
+def detokenize(tokens, alphabet):
+    """
+    Returns a name created with the given token tensor.
+
+    Excludes the [START] and [STOP] tokens.
+
+    Parameters:
+    tokens (tensor):     A tensor containing integers correlating to words in the given alphabet.
+    alphabet (Alphabet): An alphabet.
+
+    Returns:
+    (str): A name created with the given token tensor.
+    """
+    name = ''
+    for token in tokens:
+        char = alphabet[token.argmax()]
+        name.join(char if char != START_TOKEN and char != STOP_TOKEN else '')
+    return name
 
 
 def load_alphabet(src='data/alphabet.yml'):
@@ -45,6 +71,23 @@ def load_alphabet(src='data/alphabet.yml'):
             compile_alphabet(src)
 
     return Alphabet(data)
+
+
+def tokenize(name, alphabet):
+    """
+    Returns a one-hot tensor containing tokenized characters from the given name.
+
+    Parameters:
+    name (str):          The name to tokenize.
+    alphabet (Alphabet): An alphabet.
+
+    Returns:
+    (tensor): A tensor containing integers correlating to characters in the given alphabet.
+    """
+    tokens = torch.zeros(len(name), len(alphabet))
+    for i, char in enumerate(name):
+        tokens[i, alphabet[char]] = 1
+    return tokens
 
 
 class Alphabet:
@@ -77,7 +120,7 @@ class Alphabet:
         """
         if type(key) == int:
             return self.characters[key]
-        elif type(key) == Tensor:
+        elif type(key) == torch.Tensor:
             return self.characters[key.item()]
         else:
             return self.__char_to_index[key]
